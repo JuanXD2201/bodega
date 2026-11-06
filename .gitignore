@@ -1,0 +1,9 @@
+node_modules/
+dist/
+*.log
+.env
+.env.*
+.vite/
+coverage/
+test-results/
+e2e/.tmp/
