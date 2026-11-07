@@ -1,5 +1,5 @@
 /**
- * Genera sql/schema.mysql.sql y sql/schema.mssql.sql (esquema + datos de la semilla demo)
+ * Genera sql/schema.mysql.sql y sql/schema.mssql.sql (esquema + datos de ejemplo)
  * con una fecha de referencia fija, para que los archivos publicados en el repositorio
  * sean reproducibles.   Uso: npm run sql:generar
  */

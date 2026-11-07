@@ -1,7 +1,7 @@
 {
   "name": "bodega",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Sistema de inventario, compras y pedidos sobre una base SQLite real que corre en el navegador.",
   "type": "module",
   "scripts": {
@@ -12,7 +12,8 @@
     "test:e2e": "node e2e/ejecutar.mjs",
     "capturas": "node e2e/capturas.mjs",
     "sql:generar": "vite-node scripts/generar-sql.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "iconos": "node scripts/iconos.mjs"
   },
   "dependencies": {
     "@fontsource/barlow": "^5.3.0",
