@@ -83,14 +83,14 @@ La arquitectura se explica en [docs/ARQUITECTURA.md](docs/ARQUITECTURA.md) y el 
 
 | Archivo | Pruebas | Cubre |
 |---|---|---|
-|  | 50 | Cada restricción y trigger, rollback de un pedido con una línea sin stock, recepción parcial y total, traslados atómicos, ajustes, estados válidos e inválidos, vistas contra cifras calculadas a mano |
-|  | 45 | Matriz de permisos por rol, propiedad de pedidos, reglas de estado, mensajes de validación, SQL parametrizado con comillas y comodines, consola de solo lectura |
-|  | 18 | CSV malformado (comilla sin cerrar, filas de distinto ancho), neutralización de fórmulas, importación todo o nada |
-|  | 19 | Volumen y reproducibilidad de la semilla, integridad (existencias = suma de movimientos), reportes con cifras verificadas a mano, scripts MySQL y SQL Server |
+| `esquema.test.ts` | 50 | Cada restricción y trigger, rollback de un pedido con una línea sin stock, recepción parcial y total, traslados atómicos, ajustes, estados válidos e inválidos, vistas contra cifras calculadas a mano |
+| `dominio.test.ts` | 45 | Matriz de permisos por rol, propiedad de pedidos, reglas de estado, mensajes de validación, SQL parametrizado con comillas y comodines, consola de solo lectura |
+| `csv.test.ts` | 18 | CSV malformado (comilla sin cerrar, filas de distinto ancho), neutralización de fórmulas, importación todo o nada |
+| `semilla.test.ts` | 19 | Volumen y reproducibilidad de la semilla, integridad (existencias = suma de movimientos), reportes con cifras verificadas a mano, scripts MySQL y SQL Server |
 
-**Playwright: 26 pruebas de extremo a extremo** con el Chrome instalado, sirviendo  con . Cada prueba parte de un navegador limpio, recorre flujos reales por rol (crear y confirmar pedidos, despachar, trasladar, recibir compras, importar CSV, consola SQL, restablecer, persistencia tras recargar, teclado, móvil) y **falla si aparece cualquier error de consola**.
+**Playwright: 26 pruebas de extremo a extremo** con el Chrome instalado, sirviendo `dist/` con `vite preview`. Cada prueba parte de un navegador limpio, recorre flujos reales por rol (crear y confirmar pedidos, despachar, trasladar, recibir compras, importar CSV, consola SQL, restablecer, persistencia tras recargar, teclado, móvil) y **falla si aparece cualquier error de consola**.
 
-Resultado de la última ejecución: error TS5023: Unknown compiler option '--noEmit'. sin errores, 132 de 132 pruebas Vitest, 26 de 26 pruebas e2e,  de 1,5 MB (incluye el motor WASM de 0,67 MB y las fuentes).
+Resultado de la última ejecución: `npx tsc --noEmit` sin errores, 132 de 132 pruebas Vitest, 26 de 26 pruebas e2e y `dist/` de 1,5 MB (incluye el motor WASM de 0,67 MB y las fuentes).
 
 ## Demo estática
 
