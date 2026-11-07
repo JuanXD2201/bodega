@@ -1,8 +1,8 @@
 import { Component, useEffect, useState, type ReactNode } from 'react';
 import { Proveedor, useApp } from './estado';
-import { Boton, CodigoBarras, Enlace, Modal, useRuta, ir } from './componentes';
+import { Boton, Enlace, Modal, useRuta, ir } from './componentes';
 import { Icono, Marca, type NombreIcono } from './iconos';
-import { ETIQUETA_ROL, type Permiso, type Usuario } from '../domain/nucleo';
+import { ETIQUETA_ROL, type Permiso } from '../domain/nucleo';
 import { Panel } from './paginas/Panel';
 import { Productos } from './paginas/Productos';
 import { Existencias } from './paginas/Existencias';
@@ -12,8 +12,14 @@ import { Clientes, Proveedores } from './paginas/Terceros';
 import { Reportes } from './paginas/Reportes';
 import { Auditoria } from './paginas/Auditoria';
 import { Consola } from './paginas/Consola';
+import { Acceso } from './paginas/Acceso';
+import { Ajustes } from './paginas/Ajustes';
+import { Bienvenida } from './paginas/Bienvenida';
+import { Perfiles } from './paginas/Perfiles';
+import { BusquedaGlobal } from './BusquedaGlobal';
+import { InstallButton, UpdateBanner } from './PwaControls';
 
-interface ItemNav { id: string; texto: string; icono: NombreIcono; permiso: Permiso; atajo: string }
+interface ItemNav { id: string; texto: string; icono: NombreIcono; permiso: Permiso | null; atajo: string }
 
 const NAV: { grupo: string; items: ItemNav[] }[] = [
   {
@@ -41,13 +47,20 @@ const NAV: { grupo: string; items: ItemNav[] }[] = [
       { id: 'consola', texto: 'Consola SQL', icono: 'consola', permiso: 'sql.consultar', atajo: 's' },
     ],
   },
+  {
+    grupo: 'Sistema',
+    items: [
+      { id: 'perfiles', texto: 'Perfiles', icono: 'perfil', permiso: null, atajo: 'f' },
+      { id: 'ajustes', texto: 'Ajustes', icono: 'ajustes', permiso: null, atajo: 'j' },
+    ],
+  },
 ];
 const PRINCIPALES_MOVIL = ['panel', 'productos', 'existencias', 'pedidos'];
 
 export function App() {
   return (
     <ErrorLimite>
-      <Proveedor acceso={(entrar, usuarios) => <Acceso entrar={entrar} usuarios={usuarios} />}>
+      <Proveedor bienvenida={(acciones) => <Bienvenida acciones={acciones} />} acceso={(p) => <Acceso {...p} />}>
         <Carcasa />
       </Proveedor>
     </ErrorLimite>
@@ -73,53 +86,6 @@ class ErrorLimite extends Component<{ children: ReactNode }, { error: Error | nu
   }
 }
 
-// -------------------------------------------------------------------- acceso
-
-const DESCRIPCION_ROL = {
-  administrador: 'Catálogo, compras, terceros, auditoría y administración de la base.',
-  vendedor: 'Crea y confirma sus pedidos y gestiona clientes.',
-  bodeguero: 'Despacha, ajusta, traslada existencias y recibe compras.',
-} as const;
-
-function Acceso({ entrar, usuarios }: { entrar: (u: Usuario) => void; usuarios: Usuario[] }) {
-  return (
-    <main className="acceso">
-      <div className="acceso-franja" aria-hidden="true" />
-      <section className="acceso-panel">
-        <div className="acceso-marca">
-          <Marca tam={44} />
-          <div>
-            <h1>Bodega</h1>
-            <p>Inventario, compras y pedidos</p>
-          </div>
-        </div>
-        <p className="acceso-demo" role="note">
-          <strong>Demostración.</strong> No hay contraseñas ni servidor: elige un usuario de prueba para recorrer el sistema con los permisos de su rol. Los datos viven en una base SQLite dentro de tu navegador.
-        </p>
-        <h2>¿Con qué usuario quieres entrar?</h2>
-        <ul className="acceso-lista">
-          {usuarios.map((u) => (
-            <li key={u.id}>
-              <button type="button" className="acceso-usuario" onClick={() => entrar(u)} data-usuario={u.rol}>
-                <span className="acceso-avatar" aria-hidden="true">{u.nombre.split(' ').map((p) => p[0]).slice(0, 2).join('')}</span>
-                <span>
-                  <b>{u.nombre}</b>
-                  <small>{ETIQUETA_ROL[u.rol]} · {DESCRIPCION_ROL[u.rol]}</small>
-                </span>
-                <Icono n="flecha" tam={18} />
-              </button>
-            </li>
-          ))}
-        </ul>
-      </section>
-      <aside className="acceso-lateral" aria-hidden="true">
-        <CodigoBarras semilla="bodega-demo" alto={90} ancho={300} decorativo />
-        <p>Proyecto de portafolio · SQLite en WebAssembly</p>
-      </aside>
-    </main>
-  );
-}
-
 // ------------------------------------------------------------------ carcasa
 
 function Carcasa() {
@@ -127,8 +93,9 @@ function Carcasa() {
   const { ruta, partes } = useRuta();
   const [ayuda, setAyuda] = useState(false);
   const [mas, setMas] = useState(false);
+  const [buscando, setBuscando] = useState(false);
 
-  const visibles = NAV.map((g) => ({ ...g, items: g.items.filter((i) => puede(i.permiso)) })).filter((g) => g.items.length);
+  const visibles = NAV.map((g) => ({ ...g, items: g.items.filter((i) => !i.permiso || puede(i.permiso)) })).filter((g) => g.items.length);
   const todos = visibles.flatMap((g) => g.items);
   const inicio = todos[0]?.id ?? 'productos';
 
@@ -146,6 +113,11 @@ function Carcasa() {
     let esperandoG = 0;
     const tecla = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement;
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k' && !e.altKey) {
+        e.preventDefault();
+        if (!document.body.classList.contains('modal-abierto')) setBuscando(true);
+        return;
+      }
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       if (t.matches('input, textarea, select, [contenteditable]') || document.body.classList.contains('modal-abierto')) return;
       if (esperandoG && Date.now() - esperandoG < 1200) {
@@ -193,6 +165,8 @@ function Carcasa() {
           ))}
         </nav>
         <div className="lateral-pie">
+          <InstallButton />
+          <button type="button" className="lateral-ayuda" onClick={() => setBuscando(true)} data-abrir-busqueda><Icono n="buscar" tam={16} /> Buscar en todo <kbd>Ctrl K</kbd></button>
           <button type="button" className="lateral-ayuda" onClick={() => setAyuda(true)}><Icono n="ayuda" tam={16} /> Atajos de teclado</button>
         </div>
       </aside>
@@ -203,6 +177,7 @@ function Carcasa() {
           <div className="barra-contenido">
             <span className="barra-ruta">{todos.find((i) => i.id === ruta)?.texto ?? 'Bodega'}</span>
             <div className="barra-der">
+              <button type="button" className="btn-icono barra-buscar" aria-label="Buscar en todo" title="Buscar en todo (Ctrl K)" onClick={() => setBuscando(true)}><Icono n="buscar" tam={18} /></button>
               <span className={`guardado guardado-${guardado}`} role="status" aria-live="polite" data-estado-guardado={guardado}>
                 <i aria-hidden="true" />
                 {guardado === 'guardado' ? 'Guardado en el navegador' : guardado === 'guardando' ? 'Guardando…' : 'No se pudo guardar'}
@@ -243,6 +218,7 @@ function Carcasa() {
                 <Icono n={i.icono} /> {i.texto}
               </Enlace>
             ))}
+            <button type="button" className="mas-item" onClick={() => { setMas(false); setBuscando(true); }}><Icono n="buscar" /> Buscar en todo</button>
             <button type="button" className="mas-item" onClick={() => { setMas(false); salir(); }}><Icono n="salir" /> Cambiar de usuario ({usuario.nombre})</button>
           </div>
         </Modal>
@@ -262,6 +238,8 @@ function Carcasa() {
         ))}
       </div>
 
+      <UpdateBanner />
+      {buscando ? <BusquedaGlobal onCerrar={() => setBuscando(false)} /> : null}
       {ayuda ? <AyudaAtajos onCerrar={() => setAyuda(false)} items={todos} /> : null}
     </div>
   );
@@ -279,6 +257,8 @@ function paginaDe(ruta: string, partes: string[]): ReactNode {
     case 'reportes': return <Reportes />;
     case 'auditoria': return <Auditoria />;
     case 'consola': return <Consola />;
+    case 'perfiles': return <Perfiles />;
+    case 'ajustes': return <Ajustes />;
     default: return <SinAcceso />;
   }
 }
@@ -303,6 +283,7 @@ function AyudaAtajos({ onCerrar, items }: { onCerrar: () => void; items: ItemNav
           <div key={i.id} className="atajo-sub"><dt><kbd>g</kbd> <kbd>{i.atajo}</kbd></dt><dd>{i.texto}</dd></div>
         ))}
         <div><dt><kbd>/</kbd></dt><dd>Buscar en la lista actual</dd></div>
+        <div><dt><kbd>Ctrl</kbd> + <kbd>K</kbd></dt><dd>Buscar en todo: productos, pedidos, órdenes, clientes y proveedores</dd></div>
         <div><dt><kbd>n</kbd></dt><dd>Crear un registro nuevo</dd></div>
         <div><dt><kbd>Ctrl</kbd> + <kbd>Enter</kbd></dt><dd>Ejecutar la consulta en la consola SQL</dd></div>
         <div><dt><kbd>Esc</kbd></dt><dd>Cerrar un cuadro de diálogo</dd></div>

@@ -2,8 +2,7 @@ import { useRef, useState } from 'react';
 import { useApp, useConsulta } from '../estado';
 import { ejecutarConsulta, leerEsquema, type EsquemaObjeto, type ResultadoConsulta } from '../../domain/consola';
 import { generarScript, NOMBRES_SCRIPT, type Dialecto } from '../../domain/exportar';
-import { abrirDesdeBytes } from '../../data/db';
-import { Boton, Cabecera, ErrorFormulario, Confirmar, Pestanas } from '../componentes';
+import { Boton, Cabecera, ErrorFormulario, Pestanas } from '../componentes';
 import { Icono } from '../iconos';
 import { descargar } from '../fmt';
 
@@ -140,44 +139,18 @@ function Esquema() {
 }
 
 function BaseDeDatos() {
-  const { ctx, db, puede, avisar, sustituirBase } = useApp();
-  const [error, setError] = useState<string | null>(null);
-  const [restablecer, setRestablecer] = useState(false);
-  const [trabajando, setTrabajando] = useState(false);
-  const admin = puede('bd.administrar');
-  const tam = useConsulta((c) => c.db.exportar().length);
+  const { ctx, avisar } = useApp();
 
   const bajarScript = (d: Dialecto) => {
-    descargar(NOMBRES_SCRIPT[d], '﻿' + generarScript(ctx.db, d));
+    descargar(NOMBRES_SCRIPT[d], '\uFEFF' + generarScript(ctx.db, d));
     avisar({ tipo: 'ok', texto: `Descargado ${NOMBRES_SCRIPT[d]}.` });
-  };
-  const importar = async (f: File | undefined) => {
-    if (!f) return;
-    setError(null);
-    try {
-      if (f.size > 40_000_000) throw new Error('El archivo supera 40 MB.');
-      const bytes = new Uint8Array(await f.arrayBuffer());
-      const cabecera = new TextDecoder().decode(bytes.slice(0, 15));
-      if (cabecera !== 'SQLite format 3') throw new Error('El archivo no es una base SQLite válida.');
-      const prueba = await abrirDesdeBytes(bytes, () => new URL('sql-wasm.wasm', document.baseURI).href);
-      const tablas = new Set(prueba.all<{ name: string }>("SELECT name FROM sqlite_master WHERE type='table'").map((t) => t.name));
-      const check = prueba.escalar<string>('PRAGMA integrity_check');
-      const faltan = ['productos', 'pedidos', 'movimientos', 'usuarios', 'roles'].filter((t) => !tablas.has(t));
-      prueba.cerrar();
-      if (faltan.length) throw new Error(`No parece una base de Bodega: faltan las tablas ${faltan.join(', ')}.`);
-      if (check !== 'ok') throw new Error('La base importada no pasa la verificación de integridad.');
-      await sustituirBase(bytes);
-      avisar({ tipo: 'ok', texto: `Base importada desde ${f.name}.` });
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    }
   };
 
   return (
     <div className="rejilla-2">
       <section className="planilla" aria-labelledby="t-scripts">
         <h2 id="t-scripts">Scripts del esquema</h2>
-        <p>Los tres dialectos tienen las mismas tablas, restricciones, triggers y vistas. Los de MySQL y SQL Server incluyen los datos de ejemplo de esta base.</p>
+        <p>Los tres dialectos tienen las mismas tablas, restricciones, triggers y vistas. Los de MySQL y SQL Server incluyen los datos actuales de esta base (sin los PIN de los perfiles).</p>
         <ul className="descargas">
           <li><div><b className="mono">schema.sqlite.sql</b><small>Esquema que ejecuta esta aplicación (sin datos)</small></div><Boton icono="descargar" onClick={() => bajarScript('sqlite')}>Descargar</Boton></li>
           <li><div><b className="mono">schema.mysql.sql</b><small>MySQL 8.0.16 o superior, con datos</small></div><Boton icono="descargar" onClick={() => bajarScript('mysql')}>Descargar</Boton></li>
@@ -186,22 +159,9 @@ function BaseDeDatos() {
         <p className="nota-suave">Las diferencias de sintaxis (triggers, identidad, validaciones) están documentadas en <code>docs/MODELO_DE_DATOS.md</code>.</p>
       </section>
       <section className="planilla" aria-labelledby="t-archivo">
-        <h2 id="t-archivo">Archivo de la base</h2>
-        <p>La base completa ocupa <b className="mono">{(tam / 1024).toFixed(0)} KB</b> y se guarda en IndexedDB después de cada operación.</p>
-        <div className="descargas-acciones">
-          <Boton icono="descargar" disabled={!admin} onClick={() => descargar('bodega.sqlite', db.exportar() as unknown as BlobPart, 'application/vnd.sqlite3')}>Exportar .sqlite</Boton>
-          <input id="archivo-sqlite" type="file" accept=".sqlite,.db,.sqlite3,application/vnd.sqlite3" className="sr-only" disabled={!admin} onChange={(e) => { void importar(e.target.files?.[0]); e.target.value = ''; }} />
-          <label htmlFor="archivo-sqlite" className={`btn btn-secundario ${admin ? '' : 'btn-deshabilitado'}`} aria-disabled={!admin}><Icono n="subir" tam={18} /> Importar .sqlite</label>
-          <Boton variante="peligro" icono="base" disabled={!admin || trabajando} onClick={() => setRestablecer(true)}>Restablecer datos de demostración</Boton>
-        </div>
-        {!admin ? <p className="nota-suave">Exportar, importar y restablecer están reservados al rol Administrador.</p> : null}
-        <ErrorFormulario error={error} />
+        <h2 id="t-archivo">Copia de seguridad de la base</h2>
+        <p>Exportar e importar el archivo <code>.sqlite</code> completo, y borrar todos los datos, está en <a href="#/ajustes">Ajustes</a>.</p>
       </section>
-      {restablecer ? (
-        <Confirmar titulo="Restablecer la demostración" peligro textoBoton="Restablecer" onCerrar={() => setRestablecer(false)}
-          texto="Se descartan todos los cambios y se vuelve a generar la base de ejemplo con fechas relativas a hoy. No se puede deshacer."
-          onConfirmar={() => { setTrabajando(true); void sustituirBase(null).then(() => { setTrabajando(false); avisar({ tipo: 'ok', texto: 'Datos de demostración restablecidos.' }); }); }} />
-      ) : null}
     </div>
   );
 }

@@ -11,6 +11,7 @@ import { TablaDatos, type Columna } from '../tabla';
 import { cant, fechaCorta, fechaHora, pesos } from '../fmt';
 import type { ErrorDominio } from '../../domain/nucleo';
 import { Icono } from '../iconos';
+import { HojaImpresion, imprimir, type DocumentoImpreso } from '../impresion';
 
 export function Pedidos({ partes }: { partes: string[] }) {
   if (partes[1]) return <EditorPedido id={partes[1] === 'nuevo' ? null : Number(partes[1])} />;
@@ -232,6 +233,22 @@ function FormularioPedido({ existente }: { existente: PedidoDetalle | null }) {
   );
 }
 
+function documentoPedido(p: PedidoDetalle): DocumentoImpreso {
+  return {
+    tipo: 'Pedido',
+    numero: p.numero,
+    estado: p.estado,
+    fecha: p.fecha,
+    datos: [['Cliente', p.cliente], ['Bodega', p.bodega], ['Vendedor', p.vendedor]],
+    columnas: [{ titulo: 'SKU' }, { titulo: 'Producto' }, { titulo: 'Cantidad', num: true }, { titulo: 'Precio', num: true }, { titulo: 'Subtotal', num: true }],
+    filas: p.items.map((l) => [l.sku, l.nombre, `${cant(l.cantidad)} ${l.unidad}`, pesos(l.precio_unitario), pesos(l.subtotal)]),
+    resumen: `${p.lineas} líneas · ${cant(p.unidades)} unidades · Total`,
+    total: pesos(p.total),
+    notas: p.notas || undefined,
+    firmas: ['Despachó', 'Recibió conforme'],
+  };
+}
+
 function DetallePedido({ pedido, ctx, ejecutar }: { pedido: PedidoDetalle; ctx: ReturnType<typeof useApp>['ctx']; ejecutar: ReturnType<typeof useApp>['ejecutar'] }) {
   const { puede, usuario } = useApp();
   const [accion, setAccion] = useState<'anular' | 'despachar' | null>(null);
@@ -255,8 +272,10 @@ function DetallePedido({ pedido, ctx, ejecutar }: { pedido: PedidoDetalle; ctx: 
     <>
       <Cabecera titulo={`Pedido ${pedido.numero}`} subtitulo={`${pedido.cliente} · bodega ${pedido.bodega} · vendedor ${pedido.vendedor}`}>
         <Enlace a="pedidos" className="btn btn-fantasma">Volver</Enlace>
+        <Boton icono="imprimir" variante="secundario" onClick={imprimir} data-imprimir>Imprimir / PDF</Boton>
         <Insignia estado={pedido.estado} />
       </Cabecera>
+      <HojaImpresion doc={documentoPedido(pedido)} />
       <div className="editor">
         <section className="planilla" aria-labelledby="t-hist">
           <h2 id="t-hist">Historial</h2>

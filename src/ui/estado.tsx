@@ -2,7 +2,10 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { abrirDesdeBytes, cargarMotor, crearDbVacia, migrar, type Db } from '../data/db';
 import { borrarBase, guardarBase, leerBase } from '../data/almacen';
 import { ErrorDominio, tienePermiso, traducirError, type Contexto, type Permiso, type Usuario } from '../domain/nucleo';
-import { sembrar, usuariosDemo } from '../seed/semilla';
+import { inicializarBaseVacia, perfilesActivos, type Perfil } from '../domain/perfiles';
+import { crearCredencial, validarPin } from '../domain/pin';
+import { sembrar } from '../seed/semilla';
+import { borrarAjustesLocales, guardarNegocio } from './negocio';
 
 // El motor siempre se sirve desde public/sql-wasm.wasm, sin importar el nombre que pida sql.js.
 const localizar = (_f: string) => new URL('sql-wasm.wasm', document.baseURI).href;
@@ -37,7 +40,7 @@ interface Aplicacion {
   db: Db;
   ctx: Contexto;
   usuario: Usuario;
-  usuarios: Usuario[];
+  usuarios: Perfil[];
   version: number;
   guardado: EstadoGuardado;
   avisos: Aviso[];
@@ -46,8 +49,10 @@ interface Aplicacion {
   avisar: (a: Omit<Aviso, 'id'>) => void;
   cerrarAviso: (id: number) => void;
   salir: () => void;
-  /** Reemplaza la base completa (importar o restablecer). */
-  sustituirBase: (bytes: Uint8Array | null) => Promise<void>;
+  /** Reemplaza la base completa con un archivo importado y vuelve a pedir el perfil. */
+  sustituirBase: (bytes: Uint8Array) => Promise<void>;
+  /** Borra la base y los ajustes del navegador y vuelve a la bienvenida. */
+  borrarTodo: () => Promise<void>;
 }
 
 const Ctx = createContext<Aplicacion | null>(null);
@@ -65,9 +70,26 @@ export function useConsulta<T>(fn: (ctx: Contexto) => T, deps: unknown[] = []): 
   return useMemo(() => fn(ctx), [ctx, version, ...deps]);
 }
 
-type Fase = { fase: 'cargando'; texto: string } | { fase: 'error'; texto: string } | { fase: 'listo'; db: Db };
+export interface AccionesBienvenida {
+  /** Base vacía con un primer perfil de administrador (PIN opcional) y entra con él. */
+  vacia: (nombre: string, pin: string | null, negocio: string) => Promise<void>;
+  /** Base con datos de ejemplo para explorar. */
+  ejemplo: () => Promise<void>;
+}
 
-export function Proveedor({ children, acceso }: { children: ReactNode; acceso: (entrar: (u: Usuario) => void, usuarios: Usuario[]) => ReactNode }) {
+export interface PropiedadesAcceso {
+  db: Db;
+  perfiles: Perfil[];
+  entrar: (u: Usuario) => void;
+}
+
+type Fase =
+  | { fase: 'cargando'; texto: string }
+  | { fase: 'error'; texto: string; bytes: Uint8Array | null }
+  | { fase: 'bienvenida' }
+  | { fase: 'listo'; db: Db };
+
+export function Proveedor({ children, bienvenida, acceso }: { children: ReactNode; bienvenida: (a: AccionesBienvenida) => ReactNode; acceso: (p: PropiedadesAcceso) => ReactNode }) {
   const [estado, setEstado] = useState<Fase>({ fase: 'cargando', texto: 'Cargando el motor SQL…' });
   const [usuario, setUsuario] = useState<Usuario | null>(null);
 
@@ -78,37 +100,58 @@ export function Proveedor({ children, acceso }: { children: ReactNode; acceso: (
         await cargarMotor(localizar);
         setEstado({ fase: 'cargando', texto: 'Abriendo la base guardada…' });
         const guardada = await leerBase().catch(() => null);
+        if (!guardada) {
+          if (vivo) setEstado({ fase: 'bienvenida' });
+          return;
+        }
         let db: Db;
-        if (guardada) {
-          try {
-            db = await abrirDesdeBytes(guardada, localizar);
-          } catch {
-            db = await crearYSembrar();
-          }
-        } else {
-          db = await crearYSembrar();
+        try {
+          db = await abrirDesdeBytes(guardada, localizar);
+        } catch (e) {
+          if (vivo) setEstado({ fase: 'error', texto: e instanceof Error ? e.message : String(e), bytes: guardada });
+          return;
         }
         if (!vivo) return;
         const id = Number(sessionStorage.getItem(CLAVE_USUARIO));
-        const previo = id ? usuariosDeBase(db).find((u) => u.id === id) : undefined;
+        const previo = id ? perfilesActivos(db).find((u) => u.id === id) : undefined;
         if (previo) setUsuario(previo);
         setEstado({ fase: 'listo', db });
       } catch (e) {
-        if (vivo) setEstado({ fase: 'error', texto: e instanceof Error ? e.message : String(e) });
+        if (vivo) setEstado({ fase: 'error', texto: e instanceof Error ? e.message : String(e), bytes: null });
       }
     })();
-    async function crearYSembrar() {
-      setEstado({ fase: 'cargando', texto: 'Creando la base de demostración (64 productos, 150 pedidos)…' });
-      await new Promise((r) => setTimeout(r, 30));
-      const db = await crearDbVacia(localizar);
-      sembrar(db, new Date());
-      await guardarBase(db.exportar()).catch(() => undefined);
-      return db;
-    }
     return () => {
       vivo = false;
     };
   }, []);
+
+  const acciones = useMemo<AccionesBienvenida>(
+    () => ({
+      async vacia(nombre, pin, negocio) {
+        if (pin) {
+          const motivo = validarPin(pin);
+          if (motivo) throw new ErrorDominio(motivo);
+        }
+        const credencial = pin ? await crearCredencial(pin) : null;
+        const db = await crearDbVacia(localizar);
+        const admin = inicializarBaseVacia(db, { nombre, credencial });
+        guardarNegocio(negocio);
+        await guardarBase(db.exportar());
+        sessionStorage.setItem(CLAVE_USUARIO, String(admin.id));
+        setUsuario(admin);
+        setEstado({ fase: 'listo', db });
+      },
+      async ejemplo() {
+        setEstado({ fase: 'cargando', texto: 'Preparando los datos de ejemplo (64 productos, 150 pedidos)…' });
+        await new Promise((r) => setTimeout(r, 30));
+        const db = await crearDbVacia(localizar);
+        sembrar(db, new Date());
+        await guardarBase(db.exportar()).catch(() => undefined);
+        setEstado({ fase: 'listo', db });
+      },
+    }),
+    [],
+  );
 
   if (estado.fase === 'cargando') {
     return (
@@ -119,27 +162,43 @@ export function Proveedor({ children, acceso }: { children: ReactNode; acceso: (
     );
   }
   if (estado.fase === 'error') {
-    return (
-      <div className="arranque" role="alert">
-        <h1>No se pudo abrir la base de datos</h1>
-        <p>{estado.texto}</p>
-        <button className="btn" onClick={() => { void borrarBase().finally(() => location.reload()); }}>Restablecer los datos guardados</button>
-      </div>
-    );
+    return <ErrorBase texto={estado.texto} bytes={estado.bytes} />;
   }
+  if (estado.fase === 'bienvenida') return <>{bienvenida(acciones)}</>;
   return (
     <Sesion db={estado.db} usuario={usuario} setUsuario={setUsuario}>
       {usuario ? children : null}
-      {!usuario ? acceso((u) => { sessionStorage.setItem(CLAVE_USUARIO, String(u.id)); setUsuario(u); }, usuariosDeBase(estado.db)) : null}
+      {!usuario ? acceso({ db: estado.db, perfiles: perfilesActivos(estado.db), entrar: (u) => { sessionStorage.setItem(CLAVE_USUARIO, String(u.id)); setUsuario(u); } }) : null}
     </Sesion>
   );
 }
 
-function usuariosDeBase(db: Db): Usuario[] {
-  const filas = db.all<{ id: number; nombre: string; email: string; rol: Usuario['rol'] }>(
-    'SELECT u.id, u.nombre, u.email, r.nombre AS rol FROM usuarios u JOIN roles r ON r.id = u.rol_id WHERE u.activo = 1 ORDER BY u.id',
+function ErrorBase({ texto, bytes }: { texto: string; bytes: Uint8Array | null }) {
+  const [confirmando, setConfirmando] = useState(false);
+  const bajarCopia = () => {
+    if (!bytes) return;
+    const url = URL.createObjectURL(new Blob([bytes as unknown as BlobPart], { type: 'application/vnd.sqlite3' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'bodega-copia-original.sqlite';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+  return (
+    <div className="arranque" role="alert">
+      <h1>No se pudo abrir la base de datos</h1>
+      <p>{texto}</p>
+      <p>Tus datos guardados no se han modificado. Puedes descargar una copia tal como está antes de empezar de nuevo.</p>
+      <div className="descargas-acciones">
+        {bytes ? <button className="btn" onClick={bajarCopia}>Descargar copia original</button> : null}
+        {confirmando ? (
+          <button className="btn btn-peligro" onClick={() => { void borrarBase().finally(() => location.reload()); }}>Sí, borrar y empezar de nuevo</button>
+        ) : (
+          <button className="btn btn-secundario" onClick={() => setConfirmando(true)}>Empezar de nuevo</button>
+        )}
+      </div>
+    </div>
   );
-  return filas.length ? filas : usuariosDemo();
 }
 
 function Sesion({ db, usuario, setUsuario, children }: { db: Db; usuario: Usuario | null; setUsuario: (u: Usuario | null) => void; children: ReactNode }) {
@@ -208,19 +267,23 @@ function Sesion({ db, usuario, setUsuario, children }: { db: Db; usuario: Usuari
   );
 
   const sustituirBase = useCallback(
-    async (bytes: Uint8Array | null) => {
-      if (bytes) {
-        db.reemplazar(bytes);
-      } else {
-        db.reemplazar(null);
-        migrar(db);
-        sembrar(db, new Date());
-      }
+    async (bytes: Uint8Array) => {
+      db.reemplazar(bytes);
+      migrar(db);
       await guardarBase(db.exportar());
-      setVersion((v) => v + 1);
+      // El perfil en uso puede no existir en la base importada: se vuelve a pedir quién entra.
+      sessionStorage.removeItem(CLAVE_USUARIO);
+      location.reload();
     },
     [db],
   );
+
+  const borrarTodo = useCallback(async () => {
+    await borrarBase();
+    borrarAjustesLocales();
+    location.hash = '#/';
+    location.reload();
+  }, []);
 
   const salir = useCallback(() => {
     sessionStorage.removeItem(CLAVE_USUARIO);
@@ -232,12 +295,12 @@ function Sesion({ db, usuario, setUsuario, children }: { db: Db; usuario: Usuari
     () =>
       ctx && usuario
         ? {
-            db, ctx, usuario, usuarios: usuariosDeBase(db), version, guardado, avisos,
+            db, ctx, usuario, usuarios: perfilesActivos(db), version, guardado, avisos,
             puede: (p) => tienePermiso(usuario.rol, p),
-            ejecutar, avisar, cerrarAviso, salir, sustituirBase,
+            ejecutar, avisar, cerrarAviso, salir, sustituirBase, borrarTodo,
           }
         : null,
-    [db, ctx, usuario, version, guardado, avisos, ejecutar, avisar, cerrarAviso, salir, sustituirBase],
+    [db, ctx, usuario, version, guardado, avisos, ejecutar, avisar, cerrarAviso, salir, sustituirBase, borrarTodo],
   );
 
   if (!valor) return <>{children}</>;

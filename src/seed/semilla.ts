@@ -4,7 +4,7 @@ import { sumarDias } from '../domain/nucleo';
 import { ajustarStock, trasladarStock } from '../domain/inventario';
 import { anularPedido, confirmarPedido, despacharPedido, guardarPedido } from '../domain/pedidos';
 import { enviarOrden, guardarOrden, obtenerOrden, recibirOrden } from '../domain/compras';
-import { PROVEEDORES_POR_CATEGORIA, BODEGAS, CATEGORIAS, CLIENTES, PRODUCTOS_POR_CATEGORIA, PROVEEDORES, ROLES, USUARIOS } from './catalogo-demo';
+import { PROVEEDORES_POR_CATEGORIA, BODEGAS, CATEGORIAS, CLIENTES, PRODUCTOS_POR_CATEGORIA, PROVEEDORES, ROLES, USUARIOS } from './catalogo-ejemplo';
 
 /** PRNG determinista (mulberry32): la misma semilla produce siempre los mismos datos. */
 export function crearAzar(semilla: number) {
@@ -27,7 +27,7 @@ export interface ResumenSemilla {
   productos: number; clientes: number; proveedores: number; pedidos: number; ordenes: number; movimientos: number;
 }
 
-export const SEMILLA_DEMO = 20240607;
+export const SEMILLA_EJEMPLO = 20240607;
 const DIAS_HISTORIA = 120;
 const TOTAL_PEDIDOS = 150;
 
@@ -35,7 +35,7 @@ function roles(rol: number): Usuario['rol'] {
   return (['administrador', 'vendedor', 'bodeguero'] as const)[rol - 1]!;
 }
 
-export function usuariosDemo(): Usuario[] {
+export function usuariosEjemplo(): Usuario[] {
   return USUARIOS.map((u) => ({ id: u.id, nombre: u.nombre, email: u.email, rol: roles(u.rol_id) }));
 }
 
@@ -44,9 +44,9 @@ export function usuariosDemo(): Usuario[] {
  * Todo el historial pasa por los servicios del dominio, de modo que los
  * triggers generan existencias y movimientos igual que en el uso real.
  */
-export function sembrar(db: Db, hoy: Date, semilla = SEMILLA_DEMO): ResumenSemilla {
+export function sembrar(db: Db, hoy: Date, semilla = SEMILLA_EJEMPLO): ResumenSemilla {
   const azar = crearAzar(semilla);
-  const usuarios = usuariosDemo();
+  const usuarios = usuariosEjemplo();
   const porId = (id: number) => usuarios.find((u) => u.id === id)!;
   let reloj = new Date(hoy);
   const ctxDe = (u: Usuario): Contexto => ({ db, usuario: u, ahora: () => reloj });

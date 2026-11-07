@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { crearDbVacia, type Db } from '../data/db';
-import { sembrar, usuariosDemo } from '../seed/semilla';
+import { sembrar, usuariosEjemplo } from '../seed/semilla';
 import { generarScript, volcarDatos } from '../domain/exportar';
 import { panel, rotacion, stockBajo, valorInventario, ventasPorCliente, ventasPorPeriodo, ventasPorProducto } from '../domain/reportes';
 import { soloFecha, sumarDias, type Contexto } from '../domain/nucleo';
@@ -14,7 +14,7 @@ let ctx: Contexto;
 beforeAll(async () => {
   db = await crearDbVacia();
   sembrar(db, FECHA);
-  ctx = { db, usuario: usuariosDemo()[0]!, ahora: () => FECHA };
+  ctx = { db, usuario: usuariosEjemplo()[0]!, ahora: () => FECHA };
 });
 
 describe('semilla determinista', () => {
@@ -73,7 +73,7 @@ describe('semilla determinista', () => {
     ).toBe(0);
   });
 
-  it('deja casos para demostrar: stock bajo, pedidos en cada estado y órdenes abiertas', () => {
+  it('deja casos para explorar: stock bajo, pedidos en cada estado y órdenes abiertas', () => {
     expect(db.escalar('SELECT COUNT(*) FROM v_stock_bajo')).toBeGreaterThanOrEqual(4);
     for (const e of ['borrador', 'confirmado', 'despachado', 'anulado']) {
       expect(db.escalar('SELECT COUNT(*) FROM pedidos WHERE estado = ?', [e]), e).toBeGreaterThan(0);

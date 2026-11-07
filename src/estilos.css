@@ -86,7 +86,6 @@ code { background: var(--cemento-2); padding: 1px 5px; border-radius: var(--radi
 .acceso-marca { display: flex; align-items: center; gap: 14px; }
 .acceso-marca h1 { font-size: 3rem; }
 .acceso-marca p { margin: 0; color: var(--suave); }
-.acceso-demo { border-left: 5px solid var(--amarillo); background: var(--amarillo-claro); padding: 12px 14px; margin: 6px 0; }
 .acceso-lista { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
 .acceso-usuario { width: 100%; display: grid; grid-template-columns: 44px 1fr 20px; align-items: center; gap: 14px; text-align: left; padding: 12px 14px; background: #fff; border: 2px solid var(--negro); border-radius: var(--radio); cursor: pointer; font: inherit; color: inherit; }
 .acceso-usuario:hover { background: var(--amarillo); }
@@ -458,7 +457,74 @@ kbd { background: #fff; border: 1px solid var(--negro); border-bottom-width: 2px
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
 @media print {
-  body * { visibility: hidden; }
+  #raiz * { visibility: hidden; }
   .rotulo, .rotulo * { visibility: visible; }
   .rotulo { position: fixed; left: 20px; top: 20px; }
+}
+
+/* ------------------------------------------- bienvenida, PIN y perfiles */
+.bienvenida-lead { margin: 0; color: var(--suave); line-height: 1.45; }
+.bienvenida-opciones { display: grid; gap: 10px; }
+.bienvenida-opcion { width: 100%; display: grid; grid-template-columns: 24px 1fr 20px; align-items: center; gap: 14px; text-align: left; padding: 14px 16px; background: #fff; border: 2px solid var(--negro); border-radius: var(--radio); cursor: pointer; font: inherit; color: inherit; }
+.bienvenida-opcion b { display: block; font-size: 1.08rem; }
+.bienvenida-opcion small { display: block; color: var(--suave); line-height: 1.35; margin-top: 2px; }
+.bienvenida-opcion:hover { background: var(--amarillo); }
+.bienvenida-opcion:hover small { color: var(--negro); }
+.bienvenida-opcion-principal { background: var(--amarillo-claro); }
+.bienvenida-form, .acceso-pin, .form-modal { display: grid; gap: 12px; }
+.bienvenida-acciones { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 4px; }
+.acceso-pin input { max-width: 240px; font: 500 1.4rem var(--f-mono); letter-spacing: 0.3em; }
+.acceso-candado { color: var(--suave); font-weight: 500; }
+.casilla { display: flex; align-items: center; gap: 8px; font-weight: 500; }
+.lista-simple { margin: 6px 0 0; padding-left: 1.2em; display: grid; gap: 6px; color: var(--suave); }
+.lista-org { list-style: none; margin: 8px 0 0; padding: 0; display: grid; }
+.lista-org li { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid var(--linea); }
+.lista-org small { display: block; color: var(--suave); }
+.planilla-peligro { border-top-color: var(--rojo); }
+.planilla-peligro h2 { color: var(--rojo); }
+.datos-app { display: grid; gap: 0; margin: 8px 0 14px; }
+.datos-app div { display: flex; justify-content: space-between; gap: 14px; padding: 8px 0; border-top: 1px solid var(--linea); }
+.datos-app dt { color: var(--suave); }
+.datos-app dd { margin: 0; font-weight: 600; text-align: right; }
+.aviso-version { position: fixed; z-index: 70; left: 50%; bottom: 18px; transform: translateX(-50%); display: flex; align-items: center; gap: 14px; padding: 10px 12px 10px 18px; background: var(--negro); color: #fff; border-left: 8px solid var(--amarillo); box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.25); font-weight: 600; }
+.barra-buscar { border-color: var(--linea); }
+.buscador-global { max-width: none; margin-bottom: 12px; }
+.busqueda-resultados { display: grid; gap: 12px; min-height: 120px; }
+.busqueda-resultados h3 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--suave); margin: 0 0 4px; }
+.busqueda-resultados ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.resultado { width: 100%; text-align: left; display: grid; gap: 1px; padding: 8px 10px; background: #fff; border: 1px solid var(--linea); border-radius: var(--radio); cursor: pointer; font: inherit; color: inherit; }
+.resultado:hover, .resultado:focus-visible { background: var(--amarillo-claro); border-color: var(--negro); }
+.resultado small { color: var(--suave); }
+.lateral-ayuda kbd { margin-left: auto; font: 500 0.7rem var(--f-mono); border: 1px solid var(--carbon-2); padding: 0 5px; }
+@media (max-width: 880px) {
+  .aviso-version { bottom: calc(var(--alto-nav-movil) + 14px); width: calc(100% - 24px); justify-content: space-between; }
+}
+
+/* -------------------------------------------------- hoja de impresión */
+#impresion { display: none; }
+.hoja { font-family: var(--f-texto); color: #000; }
+.hoja-cabecera { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; border-bottom: 3px solid #000; padding-bottom: 10px; }
+.hoja-negocio { margin: 0; font: 600 1rem var(--f-texto); text-transform: uppercase; letter-spacing: 0.1em; }
+.hoja h1 { margin: 2px 0 0; font-size: 2rem; }
+.hoja-meta, .hoja-datos { margin: 0; display: grid; gap: 4px; }
+.hoja-meta div, .hoja-datos div { display: flex; gap: 10px; }
+.hoja dt { font-weight: 600; min-width: 88px; }
+.hoja dd { margin: 0; }
+.hoja-datos { grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 14px 0; }
+.hoja-tabla { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 0.95rem; }
+.hoja-tabla th { text-align: left; border-bottom: 2px solid #000; padding: 6px 8px; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; }
+.hoja-tabla td { padding: 6px 8px; border-bottom: 1px solid #999; }
+.hoja-tabla .num { text-align: right; font-family: var(--f-mono); white-space: nowrap; }
+.hoja-tabla tfoot td { border-top: 2px solid #000; border-bottom: 0; font-weight: 600; padding-top: 10px; }
+.hoja-notas { margin-top: 14px; }
+.hoja-firmas { display: grid; grid-template-columns: repeat(2, 1fr); gap: 60px; margin-top: 64px; }
+.hoja-firmas div { border-top: 1px solid #000; padding-top: 6px; text-align: center; }
+.hoja-firmas span { display: none; }
+.hoja-pie { margin-top: 32px; font-size: 0.75rem; color: #444; border-top: 1px solid #999; padding-top: 6px; }
+@page { size: A4; margin: 16mm; }
+@media print {
+  html, body { background: #fff !important; }
+  #raiz:not(:has(.rotulo)) { display: none !important; }
+  #impresion { display: block !important; }
+  .hoja-tabla tr { break-inside: avoid; }
 }

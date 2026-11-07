@@ -35,7 +35,7 @@ export const PERMISOS = [
   'compras.ver', 'compras.gestionar', 'compras.recibir',
   'clientes.ver', 'clientes.editar',
   'proveedores.ver', 'proveedores.editar',
-  'reportes.ver', 'auditoria.ver', 'sql.consultar', 'bd.administrar',
+  'reportes.ver', 'auditoria.ver', 'sql.consultar', 'bd.administrar', 'perfiles.administrar',
 ] as const;
 export type Permiso = (typeof PERMISOS)[number];
 

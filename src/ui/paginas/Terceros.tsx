@@ -4,7 +4,7 @@ import {
   eliminarCliente, eliminarProveedor, guardarCliente, guardarProveedor, listarClientes, listarProveedores,
   type Cliente, type Proveedor,
 } from '../../domain/terceros';
-import { Boton, BotonIcono, Buscador, Cabecera, Campo, Confirmar, ErrorFormulario, Insignia, Modal, Vacio, useDebounce } from '../componentes';
+import { consultaInicial, Boton, BotonIcono, Buscador, Cabecera, Campo, Confirmar, ErrorFormulario, Insignia, Modal, Vacio, useDebounce } from '../componentes';
 import { TablaDatos, type Columna } from '../tabla';
 import { cant, pesosCortos } from '../fmt';
 import type { ErrorDominio } from '../../domain/nucleo';
@@ -32,7 +32,7 @@ function Crud({ config, listar, guardar, eliminar, columnasExtra }: {
   columnasExtra: Columna<Tercero>[];
 }) {
   const { ejecutar, ctx, puede } = useApp();
-  const [q, setQ] = useState('');
+  const [q, setQ] = useState(consultaInicial);
   const buscar = useDebounce(q, 150);
   const [editando, setEditando] = useState<Tercero | 'nuevo' | null>(null);
   const [borrando, setBorrando] = useState<Tercero | null>(null);

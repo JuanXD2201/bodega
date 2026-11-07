@@ -1,11 +1,16 @@
 import type { Db, Valor } from '../data/db';
-import sqlite from '../sql/schema.sqlite.sql?raw';
+import sqliteV1 from '../sql/schema.sqlite.sql?raw';
+import sqlitePerfiles from '../sql/perfiles.sqlite.sql?raw';
 import mysql from '../sql/schema.mysql.sql?raw';
 import mssql from '../sql/schema.mssql.sql?raw';
 
 export type Dialecto = 'sqlite' | 'mysql' | 'mssql';
 
 const MARCA = '-- @@DATOS@@';
+const sqlite = `${sqliteV1}\n${sqlitePerfiles}`;
+
+/** Columnas que nunca salen en un script: el hash del PIN es de uso local. */
+const COLUMNAS_PRIVADAS = new Set(['pin_hash', 'pin_sal', 'pin_iteraciones']);
 
 /** Tablas en orden de dependencia (las referenciadas primero). */
 const TABLAS = [
@@ -31,7 +36,7 @@ export function volcarDatos(db: Db, dialecto: Dialecto): string {
   for (const tabla of TABLAS) {
     const filas = db.all(`SELECT * FROM ${tabla} ORDER BY ${tabla === 'existencias' ? 'producto_id, bodega_id' : 'id'}`);
     if (!filas.length) continue;
-    const columnas = Object.keys(filas[0]!);
+    const columnas = Object.keys(filas[0]!).filter((c) => !COLUMNAS_PRIVADAS.has(c));
     const identidad = dialecto === 'mssql' && !SIN_IDENTIDAD.has(tabla);
     salida.push(`-- ${tabla} (${filas.length} filas)`);
     if (identidad) salida.push(`SET IDENTITY_INSERT ${tabla} ON;`);

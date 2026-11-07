@@ -25,6 +25,9 @@ const RUTAS: Record<string, string> = {
   ayuda: 'M12 22a10 10 0 100-20 10 10 0 000 20zM9.5 9a2.5 2.5 0 114 2c-.9.6-1.5 1.1-1.5 2M12 17h.01',
   flecha: 'M9 6l6 6-6 6',
   imprimir: 'M7 8V3h10v5M7 17H4v-7h16v7h-3M7 14h10v7H7z',
+  candado: 'M6 11h12v9H6zM8 11V7a4 4 0 018 0v4M12 15v2',
+  perfil: 'M12 12a4 4 0 100-8 4 4 0 000 8zM4 21a8 8 0 0116 0',
+  ajustes: 'M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0M14 4v4M8 10v4M16 16v4',
   base: 'M4 6c0-1.7 3.6-3 8-3s8 1.3 8 3-3.6 3-8 3-8-1.3-8-3zM4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6',
 };
 

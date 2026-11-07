@@ -17,6 +17,9 @@ export function useRuta(): { partes: string[]; ruta: string } {
   return { partes, ruta: partes[0] ?? '' };
 }
 
+/** Texto de búsqueda que trae el enlace (p. ej. desde la búsqueda global): #/productos?q=HER-1001. */
+export const consultaInicial = (): string => new URLSearchParams(location.hash.split('?')[1] ?? '').get('q') ?? '';
+
 export const ir = (destino: string) => {
   location.hash = `#/${destino}`;
 };

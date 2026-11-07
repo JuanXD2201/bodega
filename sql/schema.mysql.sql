@@ -274,11 +274,11 @@ INSERT INTO roles (id, nombre, descripcion) VALUES
 
 -- usuarios (5 filas)
 INSERT INTO usuarios (id, nombre, email, rol_id, activo) VALUES
-  (1, 'Marcela Rojas', 'marcela.rojas@bodega.demo', 1, 1),
-  (2, 'Andrés Peña', 'andres.pena@bodega.demo', 2, 1),
-  (3, 'Laura Cruz', 'laura.cruz@bodega.demo', 2, 1),
-  (4, 'Diego Salazar', 'diego.salazar@bodega.demo', 3, 1),
-  (5, 'Camila Ortiz', 'camila.ortiz@bodega.demo', 3, 1);
+  (1, 'Marcela Rojas', 'marcela.rojas@bodega.example', 1, 1),
+  (2, 'Andrés Peña', 'andres.pena@bodega.example', 2, 1),
+  (3, 'Laura Cruz', 'laura.cruz@bodega.example', 2, 1),
+  (4, 'Diego Salazar', 'diego.salazar@bodega.example', 3, 1),
+  (5, 'Camila Ortiz', 'camila.ortiz@bodega.example', 3, 1);
 
 -- categorias (8 filas)
 INSERT INTO categorias (id, nombre, descripcion) VALUES

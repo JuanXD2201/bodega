@@ -5,14 +5,14 @@ import {
   type DatosProducto, type FiltrosProductos, type ProductoFila,
 } from '../../domain/catalogo';
 import { listarProveedores } from '../../domain/terceros';
-import { Boton, BotonIcono, Buscador, Cabecera, Campo, Confirmar, ErrorFormulario, Insignia, Modal, NivelStock, Rotulo, Sku, Vacio, useDebounce } from '../componentes';
+import { consultaInicial, Boton, BotonIcono, Buscador, Cabecera, Campo, Confirmar, ErrorFormulario, Insignia, Modal, NivelStock, Rotulo, Sku, Vacio, useDebounce } from '../componentes';
 import { TablaDatos, type Columna } from '../tabla';
 import { cant, descargar, pesos } from '../fmt';
 import { ErrorDominio } from '../../domain/nucleo';
 
 export function Productos() {
   const { ejecutar, ctx, puede } = useApp();
-  const [q, setQ] = useState('');
+  const [q, setQ] = useState(consultaInicial);
   const buscar = useDebounce(q, 150);
   const [categoriaId, setCategoriaId] = useState(0);
   const [estado, setEstado] = useState<NonNullable<FiltrosProductos['estado']>>('activos');

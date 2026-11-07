@@ -1,5 +1,5 @@
 /** Persistencia de la base serializada en IndexedDB. */
-const NOMBRE = 'bodega-demo';
+const NOMBRE = 'bodega-datos';
 const TIENDA = 'archivos';
 const CLAVE = 'base';
 

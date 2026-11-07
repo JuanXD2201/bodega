@@ -1,4 +1,4 @@
-/** Datos maestros de la demostración: una distribuidora de suministros industriales y de ferretería. */
+/** Datos maestros de los datos de ejemplo: una distribuidora de suministros industriales y de ferretería. */
 
 export const ROLES = [
   { id: 1, nombre: 'administrador', descripcion: 'Acceso completo: catálogo, compras, terceros, auditoría y administración de la base.' },
@@ -7,11 +7,11 @@ export const ROLES = [
 ] as const;
 
 export const USUARIOS = [
-  { id: 1, nombre: 'Marcela Rojas', email: 'marcela.rojas@bodega.demo', rol_id: 1 },
-  { id: 2, nombre: 'Andrés Peña', email: 'andres.pena@bodega.demo', rol_id: 2 },
-  { id: 3, nombre: 'Laura Cruz', email: 'laura.cruz@bodega.demo', rol_id: 2 },
-  { id: 4, nombre: 'Diego Salazar', email: 'diego.salazar@bodega.demo', rol_id: 3 },
-  { id: 5, nombre: 'Camila Ortiz', email: 'camila.ortiz@bodega.demo', rol_id: 3 },
+  { id: 1, nombre: 'Marcela Rojas', email: 'marcela.rojas@bodega.example', rol_id: 1 },
+  { id: 2, nombre: 'Andrés Peña', email: 'andres.pena@bodega.example', rol_id: 2 },
+  { id: 3, nombre: 'Laura Cruz', email: 'laura.cruz@bodega.example', rol_id: 2 },
+  { id: 4, nombre: 'Diego Salazar', email: 'diego.salazar@bodega.example', rol_id: 3 },
+  { id: 5, nombre: 'Camila Ortiz', email: 'camila.ortiz@bodega.example', rol_id: 3 },
 ] as const;
 
 export const BODEGAS = [

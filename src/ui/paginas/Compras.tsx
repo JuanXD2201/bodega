@@ -10,6 +10,7 @@ import { Boton, BotonIcono, Buscador, Cabecera, Campo, Confirmar, Enlace, ErrorF
 import { TablaDatos, type Columna } from '../tabla';
 import { cant, fechaCorta, pesos } from '../fmt';
 import type { ErrorDominio } from '../../domain/nucleo';
+import { HojaImpresion, imprimir, type DocumentoImpreso } from '../impresion';
 
 export function Compras({ partes }: { partes: string[] }) {
   if (partes[1]) return <DetalleOrden id={partes[1] === 'nuevo' ? null : Number(partes[1])} />;
@@ -175,6 +176,22 @@ function FormularioOrden({ existente }: { existente: OrdenDetalle | null }) {
   );
 }
 
+function documentoOrden(o: OrdenDetalle): DocumentoImpreso {
+  return {
+    tipo: 'Orden de compra',
+    numero: o.numero,
+    estado: o.estado,
+    fecha: o.fecha,
+    datos: [['Proveedor', o.proveedor], ['Recibe en', o.bodega]],
+    columnas: [{ titulo: 'SKU' }, { titulo: 'Producto' }, { titulo: 'Cantidad', num: true }, { titulo: 'Costo unitario', num: true }, { titulo: 'Subtotal', num: true }],
+    filas: o.items.map((l) => [l.sku, l.nombre, cant(l.cantidad_pedida), pesos(l.costo_unitario), pesos(l.subtotal)]),
+    resumen: `${o.lineas} líneas · ${cant(o.unidades_pedidas)} unidades · Total`,
+    total: pesos(o.total),
+    notas: o.notas || undefined,
+    firmas: ['Autorizó', 'Proveedor'],
+  };
+}
+
 function VistaOrden({ orden, ctx }: { orden: OrdenDetalle; ctx: ReturnType<typeof useApp>['ctx'] }) {
   const { ejecutar, puede } = useApp();
   const [recibiendo, setRecibiendo] = useState(false);
@@ -193,8 +210,10 @@ function VistaOrden({ orden, ctx }: { orden: OrdenDetalle; ctx: ReturnType<typeo
     <>
       <Cabecera titulo={`Orden ${orden.numero}`} subtitulo={`${orden.proveedor} · recibe en ${orden.bodega} · creada el ${fechaCorta(orden.fecha)}`}>
         <Enlace a="compras" className="btn btn-fantasma">Volver</Enlace>
+        <Boton icono="imprimir" variante="secundario" onClick={imprimir} data-imprimir>Imprimir / PDF</Boton>
         <Insignia estado={orden.estado} />
       </Cabecera>
+      <HojaImpresion doc={documentoOrden(orden)} />
       <section className="planilla planilla-tabla">
         <TablaDatos titulo="Líneas de la orden" columnas={columnas} filas={orden.items} clave={(l) => l.id} />
         <div className="totales"><span>{cant(orden.unidades_recibidas)} de {cant(orden.unidades_pedidas)} unidades recibidas</span><strong className="cant">{pesos(orden.total)}</strong></div>

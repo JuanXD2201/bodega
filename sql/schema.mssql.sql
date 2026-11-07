@@ -283,11 +283,11 @@ GO
 -- usuarios (5 filas)
 SET IDENTITY_INSERT usuarios ON;
 INSERT INTO usuarios (id, nombre, email, rol_id, activo) VALUES
-  (1, N'Marcela Rojas', N'marcela.rojas@bodega.demo', 1, 1),
-  (2, N'Andrés Peña', N'andres.pena@bodega.demo', 2, 1),
-  (3, N'Laura Cruz', N'laura.cruz@bodega.demo', 2, 1),
-  (4, N'Diego Salazar', N'diego.salazar@bodega.demo', 3, 1),
-  (5, N'Camila Ortiz', N'camila.ortiz@bodega.demo', 3, 1);
+  (1, N'Marcela Rojas', N'marcela.rojas@bodega.example', 1, 1),
+  (2, N'Andrés Peña', N'andres.pena@bodega.example', 2, 1),
+  (3, N'Laura Cruz', N'laura.cruz@bodega.example', 2, 1),
+  (4, N'Diego Salazar', N'diego.salazar@bodega.example', 3, 1),
+  (5, N'Camila Ortiz', N'camila.ortiz@bodega.example', 3, 1);
 SET IDENTITY_INSERT usuarios OFF;
 GO
 
