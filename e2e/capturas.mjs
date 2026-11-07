@@ -19,7 +19,10 @@ async function foto(pagina, errores, nombre) {
 {
   const { contexto, pagina, errores } = await nuevaPagina(navegador, { ancho: 1440, alto: 900 });
   await pagina.goto(URL_BASE);
-  await pagina.getByRole('heading', { name: '¿Con qué usuario quieres entrar?' }).waitFor({ timeout: 90000 });
+  await pagina.getByTestId('cargar-ejemplo').waitFor({ timeout: 90000 });
+  await foto(pagina, errores, 'bienvenida-1440');
+  await pagina.getByTestId('cargar-ejemplo').click();
+  await pagina.getByRole('heading', { name: '¿Con qué perfil quieres entrar?' }).waitFor({ timeout: 90000 });
   await foto(pagina, errores, 'acceso-1440');
 
   await pagina.locator('[data-usuario="administrador"]').first().click();
@@ -66,6 +69,29 @@ async function foto(pagina, errores, nombre) {
   await pagina.goto(URL_BASE + '#/auditoria');
   await pagina.locator('tbody tr').first().waitFor();
   await foto(pagina, errores, 'auditoria-1440');
+
+  await pagina.goto(URL_BASE + '#/perfiles');
+  await pagina.locator('tbody tr').first().waitFor();
+  await foto(pagina, errores, 'perfiles-1440');
+
+  await pagina.goto(URL_BASE + '#/ajustes');
+  await pagina.getByRole('heading', { name: 'Ajustes', level: 1 }).waitFor();
+  await foto(pagina, errores, 'ajustes-1440');
+
+  await pagina.keyboard.press('Control+k');
+  await pagina.getByRole('dialog').getByLabel('Buscar en todo').fill('martillo');
+  await pagina.locator('[data-resultado]').first().waitFor();
+  await foto(pagina, errores, 'busqueda-global-1440');
+  await pagina.keyboard.press('Escape');
+
+  await pagina.goto(URL_BASE + '#/pedidos');
+  await pagina.locator('tbody tr').filter({ hasText: /Confirmado|Despachado/ }).first().getByRole('link').first().click();
+  await pagina.getByRole('heading', { name: /^Pedido PV-/ }).waitFor();
+  await pagina.emulateMedia({ media: 'print' });
+  await pagina.setViewportSize({ width: 900, height: 700 });
+  await foto(pagina, errores, 'impresion-pedido');
+  await pagina.emulateMedia({ media: 'screen' });
+  await pagina.setViewportSize({ width: 1440, height: 900 });
   await contexto.close();
 }
 

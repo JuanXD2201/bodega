@@ -52,6 +52,8 @@ export async function nuevaPagina(navegador, { ancho = 1440, alto = 900, movil =
 
 export async function entrar(pagina, rol = 'administrador') {
   await pagina.goto(URL_BASE);
+  await pagina.locator('[data-testid="cargar-ejemplo"], .acceso-usuario').first().waitFor({ timeout: 90000 });
+  if (await pagina.getByTestId('cargar-ejemplo').count()) await pagina.getByTestId('cargar-ejemplo').click();
   await pagina.locator(`[data-usuario="${rol}"]`).first().click({ timeout: 90000 });
   await pagina.locator('.carcasa').waitFor();
 }

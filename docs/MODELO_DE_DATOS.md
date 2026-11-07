@@ -34,7 +34,7 @@ erDiagram
 
 | Tabla | Propósito | Restricciones destacadas |
 |---|---|---|
-| `roles`, `usuarios` | Identidad y rol de demostración | `roles.nombre` limitado a administrador, vendedor y bodeguero; correo único |
+| `roles`, `usuarios` | Perfiles locales de acceso y su rol; el PIN (opcional) se guarda como hash PBKDF2-SHA-256 con sal en `usuarios.pin_hash`, `pin_sal` y `pin_iteraciones` (migración 2) | `roles.nombre` limitado a administrador, vendedor y bodeguero; correo interno único (los perfiles creados en la aplicación llevan uno que no se muestra) |
 | `categorias`, `proveedores`, `bodegas`, `clientes` | Datos maestros | Nombre, NIT, código y documento únicos; `activo` solo 0 o 1 |
 | `productos` | Catálogo | `sku` único, en mayúsculas, solo letras, números y guiones; `costo >= 0`; `precio > 0`; `stock_minimo >= 0` |
 | `existencias` | Cantidad por producto y bodega | Clave primaria compuesta; `cantidad >= 0` |

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdirSync, readFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { abrirNavegador, entrar, esperarGuardado, iniciarServidor, nuevaPagina, URL_BASE } from './ayudas.mjs';
 
 const pruebas = [];
@@ -7,13 +7,6 @@ const prueba = (nombre, fn, opciones) => pruebas.push({ nombre, fn, opciones });
 const texto = (p, t) => p.getByText(t, { exact: false }).first();
 
 // ------------------------------------------------------------------ acceso
-prueba('acceso: muestra el aviso de demostración y los cinco usuarios', async ({ pagina }) => {
-  await pagina.goto(URL_BASE);
-  await pagina.getByRole('heading', { name: '¿Con qué usuario quieres entrar?' }).waitFor({ timeout: 90000 });
-  assert.match(await pagina.locator('.acceso-demo').innerText(), /Demostración/);
-  assert.equal(await pagina.locator('.acceso-usuario').count(), 5);
-});
-
 prueba('administrador: el panel muestra indicadores reales calculados en SQL', async ({ pagina }) => {
   await entrar(pagina, 'administrador');
   await pagina.getByRole('heading', { name: 'Panel', level: 1 }).waitFor();
@@ -276,34 +269,6 @@ prueba('consola SQL: esquema y descarga de scripts MySQL, SQL Server y .sqlite',
   const [mssql] = await Promise.all([pagina.waitForEvent('download'), pagina.getByRole('listitem').filter({ hasText: 'schema.mssql.sql' }).getByRole('button').click()]);
   assert.equal(mssql.suggestedFilename(), 'schema.mssql.sql');
   assert.match(readFileSync(await mssql.path(), 'utf8'), /SET IDENTITY_INSERT productos ON/);
-  const [bd] = await Promise.all([pagina.waitForEvent('download'), pagina.getByRole('button', { name: 'Exportar .sqlite' }).click()]);
-  assert.equal(readFileSync(await bd.path()).subarray(0, 15).toString('latin1'), 'SQLite format 3');
-});
-
-prueba('consola SQL: el vendedor no puede exportar ni restablecer la base', async ({ pagina }) => {
-  await entrar(pagina, 'vendedor');
-  await pagina.goto(URL_BASE + '#/consola');
-  await pagina.getByRole('tab', { name: 'Base de datos y scripts' }).click();
-  assert.equal(await pagina.getByRole('button', { name: 'Exportar .sqlite' }).isDisabled(), true);
-  assert.equal(await pagina.getByRole('button', { name: /Restablecer/ }).isDisabled(), true);
-});
-
-prueba('administrador: restablecer la demostración descarta los cambios', async ({ pagina }) => {
-  await entrar(pagina, 'administrador');
-  await pagina.goto(URL_BASE + '#/clientes');
-  await pagina.getByRole('button', { name: 'Nuevo cliente' }).click();
-  await pagina.getByLabel('Nombre o razón social').fill('Cliente temporal');
-  await pagina.getByLabel('Documento', { exact: true }).fill('111222333');
-  await pagina.getByRole('button', { name: 'Guardar', exact: true }).click();
-  await texto(pagina, 'Cliente creado').waitFor();
-  await pagina.goto(URL_BASE + '#/consola');
-  await pagina.getByRole('tab', { name: 'Base de datos y scripts' }).click();
-  await pagina.getByRole('button', { name: /Restablecer datos/ }).click();
-  await pagina.getByRole('dialog').getByRole('button', { name: 'Restablecer' }).click();
-  await texto(pagina, 'Datos de demostración restablecidos').waitFor();
-  await pagina.goto(URL_BASE + '#/clientes');
-  await pagina.getByPlaceholder(/Buscar por nombre/).fill('temporal');
-  await pagina.getByText('Sin clientes').waitFor();
 });
 
 // ------------------------------------------------------------ teclado y a11y
@@ -360,6 +325,372 @@ prueba('móvil 390x844: navegación inferior, tarjetas y sin desborde horizontal
   await pagina.getByRole('dialog').getByRole('link', { name: 'Consola SQL' }).click();
   await pagina.getByRole('heading', { name: 'Consola SQL', level: 1 }).waitFor();
 }, { movil: true, ancho: 390, alto: 844 });
+
+// ---------------------------------------------------- bienvenida y perfiles
+const pasarBienvenidaVacia = async (pagina, { nombre = 'Juana Ramírez', negocio = '', pin = '' } = {}) => {
+  await pagina.goto(URL_BASE);
+  await pagina.getByTestId('empezar-vacio').click({ timeout: 90000 });
+  await pagina.getByLabel('Tu nombre').fill(nombre);
+  if (negocio) await pagina.getByLabel(/Nombre del negocio/).fill(negocio);
+  if (pin) {
+    await pagina.getByLabel('PIN (opcional)').fill(pin);
+    await pagina.getByLabel('Repite el PIN').fill(pin);
+  }
+  await pagina.getByRole('button', { name: 'Crear la base y entrar' }).click();
+  await pagina.locator('.carcasa').waitFor();
+};
+
+prueba('bienvenida: sin lenguaje de demostración y con las dos opciones de inicio', async ({ pagina }) => {
+  await pagina.goto(URL_BASE);
+  await pagina.getByTestId('empezar-vacio').waitFor({ timeout: 90000 });
+  const t = await pagina.locator('main').innerText();
+  assert.ok(t.includes('Empezar con una base vacía') && t.includes('Cargar datos de ejemplo'));
+  assert.equal(/demo|demostra/i.test(t), false);
+  await pagina.getByTestId('cargar-ejemplo').click();
+  await pagina.getByRole('heading', { name: '¿Con qué perfil quieres entrar?' }).waitFor({ timeout: 90000 });
+  assert.equal(await pagina.locator('.acceso-usuario').count(), 5);
+  assert.equal(/demo|demostra/i.test(await pagina.locator('main').innerText()), false);
+  // la decisión se recuerda: tras recargar ya no vuelve la bienvenida
+  await pagina.reload();
+  await pagina.getByRole('heading', { name: '¿Con qué perfil quieres entrar?' }).waitFor({ timeout: 90000 });
+});
+
+prueba('base vacía: crea el administrador con PIN, trabaja sin datos y pide el PIN al volver', async ({ pagina }) => {
+  await pasarBienvenidaVacia(pagina, { negocio: 'Ferretería La 80', pin: '4821' });
+  assert.match(await pagina.locator('[data-usuario-activo]').innerText(), /Juana Ramírez/);
+  // el panel y las listas muestran estados vacíos, no errores
+  await pagina.goto(URL_BASE + '#/productos');
+  await texto(pagina, 'Nuevo producto').waitFor();
+  await pagina.goto(URL_BASE + '#/pedidos');
+  await pagina.getByRole('heading', { name: 'Pedidos', level: 1 }).waitFor();
+  await pagina.goto(URL_BASE + '#/existencias');
+  await pagina.getByRole('heading', { name: 'Existencias', level: 1 }).waitFor();
+  // un producto nuevo con las categorías iniciales
+  await pagina.goto(URL_BASE + '#/productos');
+  await pagina.getByRole('button', { name: 'Nuevo producto' }).click();
+  await pagina.getByLabel('SKU', { exact: true }).fill('ART-0001');
+  await pagina.getByLabel('Nombre', { exact: true }).fill('Artículo propio');
+  await pagina.getByLabel('Costo (COP)').fill('1000');
+  await pagina.getByLabel('Precio de venta (COP)').fill('1800');
+  await pagina.getByRole('button', { name: 'Guardar producto' }).click();
+  await texto(pagina, 'Producto creado.').waitFor();
+  await esperarGuardado(pagina);
+  // volver a entrar: el perfil con PIN lo exige
+  await pagina.getByRole('button', { name: 'Cambiar de usuario' }).click();
+  await pagina.locator('.acceso-usuario').first().click();
+  await pagina.getByLabel('PIN', { exact: true }).fill('1111');
+  await pagina.getByRole('button', { name: 'Entrar' }).click();
+  await texto(pagina, 'PIN incorrecto').waitFor();
+  assert.equal(await pagina.locator('.carcasa').count(), 0);
+  await pagina.getByLabel('PIN', { exact: true }).fill('4821');
+  await pagina.getByRole('button', { name: 'Entrar' }).click();
+  await pagina.locator('.carcasa').waitFor();
+  // el hash del PIN, no el PIN, es lo que se guardó
+  const guardado = await pagina.evaluate(() => new Promise((res) => {
+    const r = indexedDB.open('bodega-datos');
+    r.onsuccess = () => {
+      const g = r.result.transaction('archivos').objectStore('archivos').get('base');
+      g.onsuccess = () => res(new TextDecoder('latin1').decode(g.result));
+    };
+  }));
+  assert.equal(guardado.includes('4821'), false, 'el PIN no debe aparecer en la base guardada');
+  assert.ok(guardado.includes('Ferretería La 80') === false, 'el nombre del negocio no va en la base');
+});
+
+prueba('perfiles: el administrador crea uno con PIN, entra con él y bloquea tras varios intentos', async ({ pagina }) => {
+  await entrar(pagina, 'administrador');
+  await pagina.goto(URL_BASE + '#/perfiles');
+  await pagina.getByRole('heading', { name: 'Perfiles', level: 1 }).waitFor();
+  await pagina.getByRole('button', { name: 'Nuevo perfil' }).click();
+  const d = pagina.getByRole('dialog');
+  await d.getByLabel('Nombre', { exact: true }).fill('Rosa Prueba');
+  await d.getByLabel('Rol').selectOption('bodeguero');
+  await d.getByLabel('PIN (opcional)').fill('1234');
+  await d.getByRole('button', { name: 'Crear perfil' }).click();
+  await texto(pagina, 'Perfil creado.').waitFor();
+  await pagina.locator('tbody tr').filter({ hasText: 'Rosa Prueba' }).waitFor();
+  // nombre repetido
+  await pagina.getByRole('button', { name: 'Nuevo perfil' }).click();
+  await pagina.getByRole('dialog').getByLabel('Nombre', { exact: true }).fill('rosa prueba');
+  await pagina.getByRole('dialog').getByRole('button', { name: 'Crear perfil' }).click();
+  await pagina.getByRole('dialog').getByText('Ya existe un perfil con ese nombre').waitFor();
+  await pagina.keyboard.press('Escape');
+  await esperarGuardado(pagina);
+  await pagina.getByRole('button', { name: 'Cambiar de usuario' }).click();
+  await pagina.locator('[data-perfil="Rosa Prueba"]').click();
+  for (let i = 0; i < 3; i++) {
+    await pagina.getByLabel('PIN', { exact: true }).fill('9999');
+    await pagina.getByRole('button', { name: 'Entrar' }).click();
+    await pagina.getByText(/PIN incorrecto|Demasiados intentos/).waitFor();
+  }
+  await texto(pagina, 'Espera 5 s').waitFor();
+  // aun con el PIN correcto, el bloqueo temporal impide entrar
+  await pagina.getByLabel('PIN', { exact: true }).fill('1234');
+  await pagina.getByRole('button', { name: 'Entrar' }).click();
+  await texto(pagina, 'Demasiados intentos').waitFor();
+  assert.equal(await pagina.locator('.carcasa').count(), 0);
+});
+
+prueba('perfiles: entra con el PIN correcto, ve solo lo de su rol y cambia su PIN', async ({ pagina }) => {
+  await entrar(pagina, 'administrador');
+  await pagina.goto(URL_BASE + '#/perfiles');
+  await pagina.getByRole('button', { name: 'Nuevo perfil' }).click();
+  const d = pagina.getByRole('dialog');
+  await d.getByLabel('Nombre', { exact: true }).fill('Rosa Prueba');
+  await d.getByLabel('Rol').selectOption('bodeguero');
+  await d.getByLabel('PIN (opcional)').fill('1234');
+  await d.getByRole('button', { name: 'Crear perfil' }).click();
+  await texto(pagina, 'Perfil creado.').waitFor();
+  await esperarGuardado(pagina);
+  await pagina.getByRole('button', { name: 'Cambiar de usuario' }).click();
+  await pagina.locator('[data-perfil="Rosa Prueba"]').click();
+  await pagina.getByLabel('PIN', { exact: true }).fill('1234');
+  await pagina.getByRole('button', { name: 'Entrar' }).click();
+  await pagina.locator('.carcasa').waitFor();
+  assert.match(await pagina.locator('[data-usuario-activo]').innerText(), /Rosa Prueba[\s\S]*Bodeguero/);
+  assert.equal(await pagina.locator('.lateral').getByRole('link', { name: 'Compras' }).count(), 1);
+  assert.equal(await pagina.locator('.lateral').getByRole('link', { name: 'Clientes' }).count(), 0);
+  await pagina.goto(URL_BASE + '#/perfiles');
+  await pagina.getByRole('heading', { name: 'Tu perfil' }).waitFor();
+  assert.equal(await pagina.getByRole('button', { name: 'Nuevo perfil' }).count(), 0);
+  await pagina.getByRole('button', { name: 'Cambiar mi PIN' }).click();
+  const m = pagina.getByRole('dialog');
+  await m.getByLabel('PIN actual').fill('0000');
+  await m.getByLabel('PIN nuevo', { exact: true }).fill('5678');
+  await m.getByLabel('Repite el PIN nuevo').fill('5678');
+  await m.getByRole('button', { name: 'Guardar PIN' }).click();
+  await m.getByText('El PIN actual no es correcto').waitFor();
+  await m.getByLabel('PIN actual').fill('1234');
+  await m.getByRole('button', { name: 'Guardar PIN' }).click();
+  await texto(pagina, 'PIN guardado.').waitFor();
+});
+
+prueba('perfiles: no se puede quitar el rol al único administrador', async ({ pagina }) => {
+  await entrar(pagina, 'administrador');
+  await pagina.goto(URL_BASE + '#/perfiles');
+  await pagina.locator('tbody tr').filter({ hasText: 'Marcela Rojas' }).getByRole('button', { name: /^Editar/ }).click();
+  const d = pagina.getByRole('dialog');
+  await d.getByLabel('Rol').selectOption('vendedor');
+  await d.getByRole('button', { name: 'Guardar cambios' }).click();
+  await d.getByText('Debe quedar al menos un administrador activo').waitFor();
+});
+
+// ------------------------------------------------------ búsqueda global
+prueba('búsqueda global: Ctrl+K encuentra productos y abre pedidos; sin resultados lo dice', async ({ pagina }) => {
+  await entrar(pagina, 'administrador');
+  await pagina.keyboard.press('Control+k');
+  const d = pagina.getByRole('dialog', { name: 'Buscar en todo' });
+  await d.waitFor();
+  await d.getByLabel('Buscar en todo').fill('martillo');
+  await d.locator('[data-resultado="producto"]').first().waitFor();
+  await d.getByLabel('Buscar en todo').fill('zzzqqq');
+  await d.locator('[data-sin-resultados]').waitFor();
+  await d.getByLabel('Buscar en todo').fill('PV-');
+  await d.locator('[data-resultado="pedido"]').first().waitFor();
+  await d.locator('[data-resultado="pedido"]').first().click();
+  await pagina.waitForFunction(() => /^#\/pedidos\/\d+$/.test(location.hash));
+  await pagina.getByRole('heading', { name: /^Pedido PV-/ }).waitFor();
+  // desde el botón de la barra y con filtro aplicado en la lista
+  await pagina.getByRole('button', { name: 'Buscar en todo' }).first().click();
+  await pagina.getByRole('dialog').getByLabel('Buscar en todo').fill('HER-1001');
+  await pagina.getByRole('dialog').locator('[data-resultado="producto"]').first().click();
+  await pagina.getByPlaceholder('Buscar por SKU o nombre').waitFor();
+  assert.equal(await pagina.getByPlaceholder('Buscar por SKU o nombre').inputValue(), 'HER-1001');
+  await pagina.waitForFunction(() => document.querySelectorAll('tbody tr').length === 1);
+});
+
+prueba('búsqueda global: respeta el rol (el vendedor no ve proveedores ni órdenes)', async ({ pagina }) => {
+  await entrar(pagina, 'vendedor');
+  await pagina.keyboard.press('Control+k');
+  const d = pagina.getByRole('dialog', { name: 'Buscar en todo' });
+  await d.getByLabel('Buscar en todo').fill('ferre');
+  await pagina.waitForTimeout(400);
+  assert.equal(await d.locator('[data-resultado="proveedor"], [data-resultado="orden"]').count(), 0);
+});
+
+// ------------------------------------------------------------ impresión
+const probarImpresion = async (pagina, { titulo, ruta, filtro }) => {
+  await pagina.goto(URL_BASE + ruta);
+  await pagina.locator('tbody tr').first().waitFor();
+  await pagina.locator('tbody tr').filter({ hasText: filtro }).first().getByRole('link').first().click();
+  await pagina.getByRole('heading', { name: new RegExp(`^${titulo}`) }).waitFor();
+  await pagina.evaluate(() => { window.__impreso = 0; window.print = () => { window.__impreso++; }; });
+  await pagina.getByRole('button', { name: 'Imprimir / PDF' }).click();
+  assert.equal(await pagina.evaluate(() => window.__impreso), 1);
+  const hoja = pagina.locator('[data-hoja-impresion]');
+  assert.equal(await hoja.isVisible(), false, 'en pantalla la hoja está oculta');
+  await pagina.emulateMedia({ media: 'print' });
+  assert.equal(await pagina.locator('#raiz').isVisible(), false, 'al imprimir se oculta la aplicación');
+  assert.equal(await hoja.isVisible(), true, 'al imprimir se ve la hoja');
+  const t = await hoja.innerText();
+  assert.match(t, new RegExp(titulo.replace(' ', '\\s')));
+  assert.match(t, /Total/);
+  assert.match(t, /\$\s?[\d.]+/);
+  const pdf = await pagina.pdf({ format: 'A4', printBackground: true });
+  assert.equal(pdf.subarray(0, 5).toString('latin1'), '%PDF-');
+  assert.ok(pdf.length > 3000, `PDF demasiado pequeño: ${pdf.length}`);
+  await pagina.emulateMedia({ media: 'screen' });
+  return t;
+};
+
+prueba('impresión: el pedido se imprime con su hoja propia y genera un PDF', async ({ pagina }) => {
+  await entrar(pagina, 'administrador');
+  await pagina.goto(URL_BASE + '#/ajustes');
+  await pagina.getByLabel('Nombre del negocio').fill('Ferretería La 80');
+  await pagina.getByRole('button', { name: 'Guardar nombre' }).click();
+  await texto(pagina, 'Nombre del negocio guardado').waitFor();
+  const t = await probarImpresion(pagina, { titulo: 'Pedido', ruta: '#/pedidos', filtro: /Confirmado|Despachado/ });
+  assert.match(t, /Ferretería La 80/);
+  assert.match(t, /Cliente/i);
+  assert.match(t, /Recibió conforme/i);
+});
+
+prueba('impresión: la orden de compra se imprime con su hoja propia y genera un PDF', async ({ pagina }) => {
+  await entrar(pagina, 'administrador');
+  const t = await probarImpresion(pagina, { titulo: 'Orden', ruta: '#/compras', filtro: /Enviada|Parcial|Recibida/ });
+  assert.match(t, /Proveedor/i);
+  assert.match(t, /Costo unitario/i);
+});
+
+// ------------------------------------------------------------- ajustes
+prueba('ajustes: versión, categorías y bodegas propias y copia .sqlite descargable', async ({ pagina }) => {
+  await pasarBienvenidaVacia(pagina);
+  await pagina.goto(URL_BASE + '#/ajustes');
+  await pagina.getByRole('heading', { name: 'Ajustes', level: 1 }).waitFor();
+  assert.match(await pagina.getByTestId('version').innerText(), /^\d+\.\d+\.\d+$/);
+  await pagina.getByRole('button', { name: 'Nueva categoría' }).click();
+  await pagina.getByRole('dialog').getByLabel('Nombre', { exact: true }).fill('Pinturas');
+  await pagina.getByRole('dialog').getByRole('button', { name: 'Guardar' }).click();
+  await texto(pagina, 'Categoría creada.').waitFor();
+  await pagina.getByRole('button', { name: 'Nueva bodega' }).click();
+  await pagina.getByRole('dialog').getByLabel('Código').fill('sur');
+  await pagina.getByRole('dialog').getByLabel('Nombre', { exact: true }).fill('Bodega sur');
+  await pagina.getByRole('dialog').getByRole('button', { name: 'Guardar' }).click();
+  await texto(pagina, 'Bodega creada.').waitFor();
+  await pagina.getByText('Bodega sur').waitFor();
+  const [bd] = await Promise.all([pagina.waitForEvent('download'), pagina.getByRole('button', { name: 'Exportar .sqlite' }).click()]);
+  assert.equal(readFileSync(await bd.path()).subarray(0, 15).toString('latin1'), 'SQLite format 3');
+});
+
+prueba('ajustes: el vendedor no ve copia de seguridad, organización ni borrado', async ({ pagina }) => {
+  await entrar(pagina, 'vendedor');
+  await pagina.goto(URL_BASE + '#/ajustes');
+  await pagina.getByRole('heading', { name: 'Ajustes', level: 1 }).waitFor();
+  assert.equal(await pagina.getByRole('button', { name: 'Exportar .sqlite' }).count(), 0);
+  assert.equal(await pagina.getByRole('button', { name: /Borrar todos los datos/ }).count(), 0);
+  assert.equal(await pagina.getByRole('button', { name: 'Nueva bodega' }).count(), 0);
+});
+
+prueba('ajustes: importar una base .sqlite válida la reemplaza y rechaza archivos inválidos', async ({ pagina }) => {
+  await entrar(pagina, 'administrador');
+  await pagina.goto(URL_BASE + '#/ajustes');
+  const [bd] = await Promise.all([pagina.waitForEvent('download'), pagina.getByRole('button', { name: 'Exportar .sqlite' }).click()]);
+  const archivo = await bd.path();
+  await pagina.setInputFiles('#archivo-sqlite', { name: 'falso.sqlite', mimeType: 'application/octet-stream', buffer: Buffer.from('esto no es sqlite') });
+  await texto(pagina, 'no es una base SQLite válida').waitFor();
+  await pagina.setInputFiles('#archivo-sqlite', archivo);
+  await pagina.getByRole('heading', { name: '¿Con qué perfil quieres entrar?' }).waitFor({ timeout: 90000 });
+});
+
+prueba('borrar todos los datos exige escribir BORRAR y devuelve a la bienvenida', async ({ pagina }) => {
+  await entrar(pagina, 'administrador');
+  await pagina.goto(URL_BASE + '#/ajustes');
+  await pagina.getByRole('button', { name: /Borrar todos los datos…/ }).click();
+  const d = pagina.getByRole('dialog', { name: 'Borrar todos los datos' });
+  const ok = d.getByRole('button', { name: 'Borrar definitivamente' });
+  assert.equal(await ok.isDisabled(), true);
+  await d.getByLabel(/Escribe BORRAR/).fill('borrar');
+  assert.equal(await ok.isDisabled(), true);
+  await d.getByLabel(/Escribe BORRAR/).fill('BORRAR');
+  await ok.click();
+  await pagina.getByTestId('empezar-vacio').waitFor({ timeout: 90000 });
+  await pagina.reload();
+  await pagina.getByTestId('empezar-vacio').waitFor({ timeout: 90000 });
+});
+
+// ------------------------------------------- aplicación instalable y offline
+prueba('PWA: manifiesto válido, iconos, motor SQL en caché y service worker activo', async ({ pagina }) => {
+  await pagina.goto(URL_BASE);
+  await pagina.getByTestId('empezar-vacio').waitFor({ timeout: 90000 });
+  const m = await pagina.evaluate(async () => {
+    const href = document.querySelector('link[rel="manifest"]').getAttribute('href');
+    return { href, json: await (await fetch(href)).json() };
+  });
+  assert.equal(m.href, './manifest.webmanifest');
+  assert.equal(m.json.display, 'standalone');
+  assert.equal(m.json.start_url, './');
+  assert.equal(m.json.scope, './');
+  assert.ok(m.json.icons.some((i) => i.sizes === '512x512') && m.json.icons.some((i) => i.purpose === 'maskable'));
+  for (const icono of m.json.icons) assert.ok(await pagina.evaluate(async (s) => (await fetch(s)).ok, icono.src), icono.src);
+  await pagina.evaluate(() => navigator.serviceWorker.ready);
+  const claves = await pagina.evaluate(async () => {
+    const k = (await caches.keys())[0];
+    return (await (await caches.open(k)).keys()).map((r) => new URL(r.url).pathname);
+  });
+  assert.ok(claves.some((p) => p.endsWith('/sql-wasm.wasm')), 'el .wasm de SQLite debe estar precacheado');
+  assert.ok(claves.some((p) => p.endsWith('.woff2')), 'las fuentes deben estar precacheadas');
+});
+
+prueba('PWA sin conexión: abre, entra, navega y guarda cambios sin red', async ({ pagina, contexto }) => {
+  await entrar(pagina, 'administrador');
+  await pagina.evaluate(() => navigator.serviceWorker.ready);
+  await pagina.reload();
+  await pagina.locator('.carcasa').waitFor({ timeout: 90000 });
+  await pagina.waitForFunction(() => Boolean(navigator.serviceWorker.controller));
+  await contexto.setOffline(true);
+  await pagina.reload();
+  await pagina.locator('.carcasa').waitFor({ timeout: 90000 });
+  await pagina.goto(URL_BASE + '#/clientes');
+  await pagina.getByRole('button', { name: 'Nuevo cliente' }).click();
+  await pagina.getByLabel('Nombre o razón social').fill('Cliente sin red');
+  await pagina.getByLabel('Documento', { exact: true }).fill('800700600');
+  await pagina.getByRole('button', { name: 'Guardar', exact: true }).click();
+  await texto(pagina, 'Cliente creado').waitFor();
+  await esperarGuardado(pagina);
+  await pagina.reload();
+  await pagina.locator('.carcasa').waitFor({ timeout: 90000 });
+  await pagina.goto(URL_BASE + '#/clientes');
+  await pagina.getByPlaceholder(/Buscar por nombre/).fill('sin red');
+  await pagina.locator('tbody tr').filter({ hasText: 'Cliente sin red' }).waitFor();
+  await contexto.setOffline(false);
+});
+
+prueba('PWA: una versión nueva muestra «Hay una versión nueva» y Recargar la activa', async ({ pagina }) => {
+  await entrar(pagina, 'administrador');
+  await pagina.evaluate(() => navigator.serviceWorker.ready);
+  await pagina.reload();
+  await pagina.locator('.carcasa').waitFor({ timeout: 90000 });
+  await pagina.waitForFunction(() => Boolean(navigator.serviceWorker.controller));
+  const archivo = 'dist/sw.js';
+  const original = readFileSync(archivo, 'utf8');
+  try {
+    writeFileSync(archivo, original.replace(/const CACHE = PREFIX \+ '[0-9a-f]+'/, "const CACHE = PREFIX + 'zzz-nueva'"));
+    await pagina.evaluate(() => navigator.serviceWorker.getRegistration().then((r) => r.update()));
+    await pagina.getByTestId('aviso-actualizacion').waitFor();
+    assert.match(await pagina.getByTestId('aviso-actualizacion').innerText(), /Hay una versión nueva/);
+    await Promise.all([pagina.waitForEvent('load'), pagina.getByRole('button', { name: 'Recargar' }).click()]);
+    await pagina.locator('.carcasa').waitFor({ timeout: 90000 });
+    assert.equal(await pagina.getByTestId('aviso-actualizacion').count(), 0);
+    assert.deepEqual(await pagina.evaluate(() => caches.keys()), ['bodega-zzz-nueva']);
+  } finally {
+    writeFileSync(archivo, original);
+  }
+});
+
+prueba('el botón «Instalar aplicación» aparece cuando el navegador lo permite', async ({ pagina }) => {
+  await entrar(pagina, 'administrador');
+  assert.equal(await pagina.getByRole('button', { name: 'Instalar aplicación' }).count(), 0);
+  await pagina.evaluate(() => {
+    const e = new Event('beforeinstallprompt', { cancelable: true });
+    e.prompt = () => Promise.resolve();
+    e.userChoice = Promise.resolve({ outcome: 'accepted' });
+    window.dispatchEvent(e);
+  });
+  const btn = pagina.getByRole('button', { name: 'Instalar aplicación' }).first();
+  await btn.waitFor();
+  await btn.click();
+  await pagina.waitForFunction(() => ![...document.querySelectorAll('button')].some((b) => b.textContent.includes('Instalar aplicación')));
+});
 
 // ================================================================ ejecución
 mkdirSync('e2e/.tmp', { recursive: true });
