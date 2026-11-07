@@ -17,7 +17,7 @@ const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'o
 function etiquetaPeriodo(e: string, a: Agrupacion): string {
   if (a === 'dia') return `${Number(e.slice(8, 10))} ${MESES[Number(e.slice(5, 7)) - 1]}`;
   if (a === 'mes') return `${MESES[Number(e.slice(5, 7)) - 1]} ${e.slice(2, 4)}`;
-  return `S${e.slice(6)} ${e.slice(2, 4)}`;
+  return `sem ${Number(e.slice(6))}`;
 }
 
 export function Reportes() {

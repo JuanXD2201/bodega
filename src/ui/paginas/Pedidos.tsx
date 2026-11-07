@@ -126,9 +126,10 @@ function FormularioPedido({ existente }: { existente: PedidoDetalle | null }) {
   const confirmar = () => {
     const nuevo = guardar();
     if (!nuevo) return;
-    const r = ejecutar(() => confirmarPedido(ctx, nuevo), { ok: 'Pedido confirmado: el stock se descontó de la bodega.', deshacer: true, enLinea: true });
-    if (!r.ok) { setError(r.error ?? null); if (!existente) ir(`pedidos/${nuevo}`); return; }
+    const r = ejecutar(() => confirmarPedido(ctx, nuevo), { ok: 'Pedido confirmado: el stock se descontó de la bodega.', deshacer: true });
+    // Si falla (p. ej. sin stock) el aviso explica el motivo y el borrador queda guardado.
     ir(`pedidos/${nuevo}`);
+    void r;
   };
 
   return (

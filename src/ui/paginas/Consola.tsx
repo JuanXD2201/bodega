@@ -159,7 +159,7 @@ function BaseDeDatos() {
       const bytes = new Uint8Array(await f.arrayBuffer());
       const cabecera = new TextDecoder().decode(bytes.slice(0, 15));
       if (cabecera !== 'SQLite format 3') throw new Error('El archivo no es una base SQLite válida.');
-      const prueba = await abrirDesdeBytes(bytes, (n) => new URL(n, document.baseURI).href);
+      const prueba = await abrirDesdeBytes(bytes, () => new URL('sql-wasm.wasm', document.baseURI).href);
       const tablas = new Set(prueba.all<{ name: string }>("SELECT name FROM sqlite_master WHERE type='table'").map((t) => t.name));
       const check = prueba.escalar<string>('PRAGMA integrity_check');
       const faltan = ['productos', 'pedidos', 'movimientos', 'usuarios', 'roles'].filter((t) => !tablas.has(t));

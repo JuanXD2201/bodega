@@ -4,7 +4,8 @@ import { borrarBase, guardarBase, leerBase } from '../data/almacen';
 import { ErrorDominio, tienePermiso, traducirError, type Contexto, type Permiso, type Usuario } from '../domain/nucleo';
 import { sembrar, usuariosDemo } from '../seed/semilla';
 
-const localizar = (f: string) => new URL(f, document.baseURI).href;
+// El motor siempre se sirve desde public/sql-wasm.wasm, sin importar el nombre que pida sql.js.
+const localizar = (_f: string) => new URL('sql-wasm.wasm', document.baseURI).href;
 const CLAVE_USUARIO = 'bodega.usuario';
 
 export type EstadoGuardado = 'guardado' | 'guardando' | 'error';

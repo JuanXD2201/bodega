@@ -119,3 +119,15 @@ export const PRODUCTOS_POR_CATEGORIA: Record<string, readonly (readonly [string,
     ['Bolsa de burbuja rollo 1 m', 'rollo', 31000], ['Zuncho plástico rollo', 'rollo', 36000],
   ],
 };
+
+/** Proveedores habituales por categoría (índices de PROVEEDORES), rotando por producto. */
+export const PROVEEDORES_POR_CATEGORIA: Record<string, readonly [number, number, number]> = {
+  HER: [0, 10, 8],
+  FIJ: [1, 11, 8],
+  ELE: [2, 9, 10],
+  PLO: [3, 8, 10],
+  PIN: [4, 10, 8],
+  SEG: [5, 10, 8],
+  ASE: [6, 7, 10],
+  EMP: [7, 10, 6],
+};

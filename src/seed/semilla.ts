@@ -4,7 +4,7 @@ import { sumarDias } from '../domain/nucleo';
 import { ajustarStock, trasladarStock } from '../domain/inventario';
 import { anularPedido, confirmarPedido, despacharPedido, guardarPedido } from '../domain/pedidos';
 import { enviarOrden, guardarOrden, obtenerOrden, recibirOrden } from '../domain/compras';
-import { BODEGAS, CATEGORIAS, CLIENTES, PRODUCTOS_POR_CATEGORIA, PROVEEDORES, ROLES, USUARIOS } from './catalogo-demo';
+import { PROVEEDORES_POR_CATEGORIA, BODEGAS, CATEGORIAS, CLIENTES, PRODUCTOS_POR_CATEGORIA, PROVEEDORES, ROLES, USUARIOS } from './catalogo-demo';
 
 /** PRNG determinista (mulberry32): la misma semilla produce siempre los mismos datos. */
 export function crearAzar(semilla: number) {
@@ -85,7 +85,7 @@ export function sembrar(db: Db, hoy: Date, semilla = SEMILLA_DEMO): ResumenSemil
         db.run(
           `INSERT INTO productos (id, sku, nombre, categoria_id, proveedor_id, unidad, costo, precio, stock_minimo, creado_en)
            VALUES (?,?,?,?,?,?,?,?,?,?)`,
-          [n, `${cat.prefijo}-${1000 + n}`, nombre, ci + 1, ((ci * 3 + (j % 3)) % 12) + 1, unidad, costo, precio, minimo, creado.toISOString().slice(0, 19).replace('T', ' ')],
+          [n, `${cat.prefijo}-${1000 + n}`, nombre, ci + 1, (PROVEEDORES_POR_CATEGORIA[cat.prefijo]![j % 3]!) + 1, unidad, costo, precio, minimo, creado.toISOString().slice(0, 19).replace('T', ' ')],
         );
       });
     });
